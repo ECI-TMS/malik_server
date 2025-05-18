@@ -1,0 +1,23 @@
+# Dependency directories
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+
+lib-cov/
+coverage/
+.grunt/
+build/Release
+.env
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
