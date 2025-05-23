@@ -3,7 +3,7 @@ import {
   createProject, 
   getAllProjects, 
   getProjectById, 
-  updateProject, 
+  editProject,
   deleteProject 
 } from '../controllers/projectController.js';
 import { validateProject, validateId } from '../middleware/validation.js';
@@ -25,16 +25,10 @@ router.post(
 
 router.get('/', getAllProjects);
 router.get('/:id', validateId, getProjectById);
-router.put(
-  '/:id',
-  validateId,
-  upload.fields([
-    { name: 'image', maxCount: 1 },      // For thumbnail
-    { name: 'images', maxCount: 10 },    // For gallery
-  ]),
-  validateProject,
-  updateProject
-);
+router.put('/project/:projectId', upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'images', maxCount: 10 }
+]), editProject);
 
 router.delete('/:id', validateId, deleteProject);
 

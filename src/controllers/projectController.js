@@ -187,74 +187,79 @@ export const getProjectById = async (req, res, next) => {
 // };
 
 
-export const updateProject = async (req, res, next) => {
+export const editProject = async (req, res, next) => {
   const connection = await pool.getConnection();
   try {
-    const { id } = req.params;
+    const { projectId } = req.params;
     const { title, description } = req.body;
-
-    const thumbnailFile = req.files?.image?.[0] || null;
-    const galleryFiles = req.files?.images || [];
-
-    // 1. Check if project exists
-    const [projectRows] = await connection.query(
-      'SELECT * FROM projects WHERE id = ?',
-      [id]
-    );
-
-    const existingProject = projectRows[0];
-    if (!existingProject) {
-      // Delete uploaded files
-      const allFiles = [...(req.files?.image || []), ...(req.files?.images || [])];
-      allFiles.forEach(file => {
-        const filePath = path.resolve(file.path);
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      });
-
-      return res.status(404).json({
-        success: false,
-        message: 'Project not found',
-      });
+    
+    // Parse retainedServerImageUrls from JSON string
+    let retainedServerImageUrls = [];
+    try {
+      retainedServerImageUrls = req.body.retainedServerImageUrls 
+        ? JSON.parse(req.body.retainedServerImageUrls) 
+        : [];
+    } catch (parseError) {
+      console.warn('Failed to parse retainedServerImageUrls:', parseError);
+      retainedServerImageUrls = [];
     }
 
-    // 2. Begin transaction
+    const thumbnailFile = req.files?.image?.[0];
+    const newGalleryFiles = req.files?.images || [];
+    
+    console.log('Thumbnail file:', thumbnailFile);
+    console.log('New gallery files:', newGalleryFiles);
+    console.log('Retained server URLs:', retainedServerImageUrls);
+
     await connection.beginTransaction();
 
-    // 3. Delete old thumbnail if new one provided
-    let image_path = existingProject.image_path;
+    // 1. Update basic project info
+    let updateQuery = 'UPDATE projects SET title = ?, description = ?';
+    let updateValues = [title, description];
+    
+    let newThumbnailPath = null;
     if (thumbnailFile) {
-      const oldImagePath = path.resolve(`.${existingProject.image_path}`);
-      if (fs.existsSync(oldImagePath)) fs.unlinkSync(oldImagePath);
-      image_path = `/uploads/${path.basename(thumbnailFile.path)}`;
+      newThumbnailPath = `/uploads/${path.basename(thumbnailFile.path)}`;
+      updateQuery += ', image_path = ?';
+      updateValues.push(newThumbnailPath);
     }
+    
+    updateQuery += ' WHERE id = ?';
+    updateValues.push(projectId);
 
-    // 4. Update `projects` table
-    await connection.query(
-      'UPDATE projects SET title = ?, description = ?, image_path = ? WHERE id = ?',
-      [title, description, image_path, id]
+    await connection.query(updateQuery, updateValues);
+
+    // 2. Handle gallery images - Get existing images
+    const [existingImages] = await connection.query(
+      'SELECT id, image_path FROM project_images WHERE project_id = ?',
+      [projectId]
     );
 
-    // 5. Handle gallery images
-    if (galleryFiles.length > 0) {
-      // a. Delete old gallery images
-      const [oldGalleryRows] = await connection.query(
-        'SELECT image_path FROM project_images WHERE project_id = ?',
-        [id]
-      );
+    // 3. Remove deleted gallery images
+    const imagesToDelete = existingImages.filter(img => 
+      !retainedServerImageUrls.includes(img.image_path)
+    );
 
-      for (const row of oldGalleryRows) {
-        const imgPath = path.resolve(`.${row.image_path}`);
-        if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
-      }
-
+    if (imagesToDelete.length > 0) {
+      const idsToDelete = imagesToDelete.map(img => img.id);
       await connection.query(
-        'DELETE FROM project_images WHERE project_id = ?',
-        [id]
+        'DELETE FROM project_images WHERE id IN (?)',
+        [idsToDelete]
       );
 
-      // b. Insert new gallery images
-      const galleryInsertValues = galleryFiles.map(file => [
-        id,
+      // Delete files from storage
+      imagesToDelete.forEach(img => {
+        const filePath = path.join(__dirname, '..', '..', img.image_path);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      });
+    }
+
+    // 4. Insert new gallery images
+    if (newGalleryFiles.length > 0) {
+      const galleryInsertValues = newGalleryFiles.map(file => [
+        projectId,
         `/uploads/${path.basename(file.path)}`
       ]);
 
@@ -264,28 +269,31 @@ export const updateProject = async (req, res, next) => {
       );
     }
 
-    // 6. Commit transaction
     await connection.commit();
-
-    res.status(200).json({
+    
+    res.json({
       success: true,
       message: 'Project updated successfully',
       data: {
-        id,
+        id: projectId,
         title,
         description,
-        image_path,
-        gallery_images: galleryFiles.map(file => `/uploads/${path.basename(file.path)}`)
+        image_path: newThumbnailPath,
+        retained_images: retainedServerImageUrls,
+        new_gallery_images: newGalleryFiles.map(file => `/uploads/${path.basename(file.path)}`)
       }
     });
   } catch (error) {
     await connection.rollback();
+    console.error('Update project error:', error);
 
     // Delete uploaded files on error
     const allFiles = [...(req.files?.image || []), ...(req.files?.images || [])];
     allFiles.forEach(file => {
-      const filePath = path.resolve(file.path);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      const filePath = path.join(__dirname, '..', '..', file.path);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     });
 
     next(error);
@@ -293,6 +301,7 @@ export const updateProject = async (req, res, next) => {
     connection.release();
   }
 };
+
 
 
 
