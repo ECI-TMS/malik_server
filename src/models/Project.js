@@ -32,12 +32,35 @@ class Project {
 
   static async getById(id) {
     try {
-      const [rows] = await pool.query('SELECT * FROM projects WHERE id = ?', [id]);
-      return rows[0] || null;
+      const connection = await pool.getConnection();
+      try {
+        // Fetch main project
+        const [projects] = await connection.query('SELECT * FROM projects WHERE id = ?', [id]);
+  
+        if (projects.length === 0) {
+          return null;
+        }
+  
+        const project = projects[0];
+  
+        // Fetch associated images from project_images table
+        const [images] = await connection.query(
+          'SELECT image_path FROM project_images WHERE project_id = ?',
+          [id]
+        );
+  
+        // Add the image paths as an array
+        project.images_paths = images.map(img => img.image_path);
+  
+        return project;
+      } finally {
+        connection.release();
+      }
     } catch (error) {
       throw error;
     }
   }
+  
 
   static async update(id, projectData) {
     try {
