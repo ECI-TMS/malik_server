@@ -4,7 +4,8 @@ import {
   getAllProjects, 
   getProjectById, 
   editProject,
-  deleteProject 
+  deleteProject ,
+  getProjectWithImages
 } from '../controllers/projectController.js';
 import { validateProject, validateId } from '../middleware/validation.js';
 import upload from '../middleware/upload.js';
@@ -24,6 +25,7 @@ router.post(
 );
 
 router.get('/', getAllProjects);
+router.get('/projectWithImages', getProjectWithImages);
 router.get('/:id', validateId, getProjectById);
 router.put('/project/:projectId', upload.fields([
   { name: 'image', maxCount: 1 },

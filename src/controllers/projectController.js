@@ -330,3 +330,53 @@ export const deleteProject = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
+export const getProjectWithImages = async (req, res, next) => {
+  try {
+    const connection = await pool.getConnection();
+
+    // Get all projects with their images
+    const [projects] = await connection.query(`
+      SELECT 
+        p.id AS project_id, p.title, p.description, p.image_path, 
+        pi.id AS image_id, pi.image_path AS project_image_path
+      FROM projects p
+      LEFT JOIN project_images pi ON p.id = pi.project_id
+      ORDER BY p.id, pi.id
+    `);
+
+    connection.release();
+
+    // Format the results
+    const projectMap = new Map();
+
+    projects.forEach(row => {
+      if (!projectMap.has(row.project_id)) {
+        projectMap.set(row.project_id, {
+          id: row.project_id,
+          title: row.title,
+          description: row.description,
+          image_path: row.image_path,
+          link: "", // Set this dynamically or add a link column in DB
+          images: [],
+        });
+      }
+
+      if (row.image_id) {
+        projectMap.get(row.project_id).images.push({
+          id: row.image_id,
+          image_path: row.project_image_path,
+        });
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      projects: Array.from(projectMap.values())
+    });
+  } catch (error) {
+    next(error);
+  }
+};
