@@ -1,2 +1,9 @@
 1) i added link field on production or master branch in server.
     to do : i have to add link field in db in project table 
+
+note 1 : i have migrate command also in on npm start , now i have already database with data in railway  wanna check whether new deployment delete the data or not frm db.  (no not delete any thing from db)
+
+note 2:right now put link field in db and inserting value for  link field manually on production . the same thing i will do locally . i added the link field in db schema database/migrations.
+
+note 3: uploads folder gitignored when the backend deploy it will remove the upload folder  so on the  server there will be no images .
+

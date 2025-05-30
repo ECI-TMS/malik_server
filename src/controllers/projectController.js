@@ -339,13 +339,14 @@ export const getProjectWithImages = async (req, res, next) => {
 
     // Get all projects with their images
     const [projects] = await connection.query(`
-      SELECT 
-        p.id AS project_id, p.title,p.link, p.description, p.image_path, 
-        pi.id AS image_id, pi.image_path AS project_image_path
-      FROM projects p
-      LEFT JOIN project_images pi ON p.id = pi.project_id
-      ORDER BY p.id, pi.id
-    `);
+  SELECT 
+    p.id AS project_id, p.title, p.link, p.description, p.image_path, 
+    pi.id AS image_id, pi.image_path AS project_image_path
+  FROM projects p
+  LEFT JOIN project_images pi ON p.id = pi.project_id
+  ORDER BY p.id DESC, pi.id
+`);
+
 
     connection.release();
 

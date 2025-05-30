@@ -30,6 +30,7 @@ const migrate = async () => {
         title VARCHAR(100) NOT NULL,
         description TEXT NOT NULL,
         image_path VARCHAR(255) NOT NULL,
+        link TEXT DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
